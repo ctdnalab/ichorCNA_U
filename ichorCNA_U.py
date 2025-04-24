@@ -103,6 +103,7 @@ class inData(object):
 		self.outFolder = yam['outputDir']
 		self.rscriptPath = yam['RscriptPath']
 		self.bedtoolsPath = yam['bedtoolsPath']
+		self.samtoolsPath = yam['samtoolsPath']
 		self.juliaPath = yam["juliaPath"]
 		self.bedDepthPath = '{0}/src/getBedDepth.jl'.format(scriptHome)
 		if yam['ichorCNAPath'] == "default":
@@ -162,18 +163,17 @@ def write_beddepth(sData):
 	chroms = [str(x) for x in sData.chrs]
 	for s in sData.samples:
 		inFile = sData.samples[s]
-		mem = 50000
-		samCmd1 = ""
-		samCmd2 = ""
-		args = [sData.bedDepthPath,sData.binSize,','.join(chroms),inFile,sData.outFolder,s,
-			sData.bedtoolsPath,sData.chromSizeFile,sData.juliaPath]
-		hcCmd = """{8} {0} \\
-	{3} \\
-	{1} \\
-	{7} \\
-	{4}/wigFiles/{5}.wig \\
-	--chroms {2} \\
-	--toolpath {6} \n\n""".format(*args)
+		mem = 20000
+		goodChroms = ','.join(chroms)
+		hcCmd = f"""{sData.juliaPath} {sData.bedDepthPath} \\
+	{inFile} \\
+	{sData.binSize} \\
+	{sData.chromSizeFile} \\
+	{sData.refGenome} \\
+	{sData.outFolder}/wigFiles/{s}.wig \\
+	--chroms {goodChroms} \\
+	--bedtoolspath {sData.bedtoolsPath} \\
+	--samtoolspath {sData.samtoolsPath} \\\n\n"""
 
 		out = open("{0}/jobScripts/binDepth/{1}.depth.bed.slurm".format(sData.outFolder,s),"w")
 
@@ -218,6 +218,8 @@ def write_ichorCNA(sData):
 			mapWig = sData.mapWig
 		if sData.blacklist == "" or sData.blacklist == False:
 			blacklist = "NULL"
+		else:
+			blacklist = sData.blacklist
 
 		allChrSet = "\\\"" + '\\\",\\\"'.join(allChr) + "\\\""
 
@@ -229,7 +231,9 @@ def write_ichorCNA(sData):
 
 		scriptPaths.append("{0}/jobScripts/ichorCNA/{1}.slurm".format(sData.outFolder,s))
 		out = open("{0}/jobScripts/ichorCNA/{1}.slurm".format(sData.outFolder,s),"w")
-
+		ploidyRange = ','.join(sData.ploidy)
+		normalRange = ','.join(sData.normalStart)
+		scStateRange = ','.join(sData.scStates)
 
 		out.write("""#!/bin/bash
 #
@@ -240,33 +244,32 @@ def write_ichorCNA(sData):
 #SBATCH -t 0-05:00		# time (D-HH:MM)
 #SBATCH -o {1}/logs/ichorCNA_{0}.log	#Logfile
 #SBATCH --job-name=ichorCNA_{0}
-#SBATCH --mail-type=FAIL
 #SBATCH --chdir={1}\n\n""".format(s,sData.outFolder,sData.queue))
 
-		out.write("""{23} {16}/src/runIchorCNA.R \\
-	--id {0} \\
-	--WIG {1}/wigFiles/{0}.wig \\
-	--ploidy "c({8})" \\
-	--normal "c({7})" \\
-	--maxCN {9} \\
-	--gcWig  {18} \\
-	--mapWig {19}  \\
-	--normalPanel {17} \\
-	--libdir {15} \\
-	--chrs "c({3})" \\
-	--chrTrain "c({3})" \\
-	--chrNormalize "c({3})" \\
-	--estimateNormal {10} \\
-	--estimatePloidy {11} \\
-	--estimateScPrevalence {12} \\
-	--scStates "c({13})" \\
-	--txnE {5} \\
-	--txnStrength {6} \\
-	--outDir {1}/ichorOut \\
-	--includeHOMD {14} \\
-	--maxFracCNASubclone {20} \\
-	--maxFracGenomeSubclone {21} \\
-	--centromere {22}\n""".format(*args))
+		out.write(f"""{sData.rscriptPath} {sData.scriptHome}/src/runIchorCNA.R \\
+	--id {s} \\
+	--WIG {sData.outFolder}/wigFiles/{s}.wig \\
+	--ploidy "c({ploidyRange})" \\
+	--normal "c({normalRange})" \\
+	--maxCN {sData.maxCN} \\
+	--gcWig  {gcWig} \\
+	--mapWig {mapWig}  \\
+	--normalPanel {normalPanel} \\
+	--libdir {sData.ichorCNAPath} \\
+	--chrs "c({allChrSet})" \\
+	--chrTrain "c({allChrSet})" \\
+	--chrNormalize "c({allChrSet})" \\
+	--estimateNormal {sData.estimateNormal} \\
+	--estimatePloidy {sData.estimatePloidy} \\
+	--estimateScPrevalence {sData.estimateClonality} \\
+	--scStates "c({scStateRange})" \\
+	--txnE {sData.txnE} \\
+	--txnStrength {sData.txnStrength} \\
+	--outDir {sData.outFolder}/ichorOut \\
+	--includeHOMD {sData.includeHOMD} \\
+	--maxFracCNASubclone {sData.maxSubCNA} \\
+	--maxFracGenomeSubclone {sData.maxSub} \\
+	--centromere {blacklist}\n""")
 		out.close()
 	return
 

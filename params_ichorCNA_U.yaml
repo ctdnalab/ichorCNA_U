@@ -11,6 +11,7 @@ ichorCNAPath: default #src_ichorCNA/ path, defaults to the dir containing ichorC
 RscriptPath: Rscript
 juliaPath: julia
 bedtoolsPath: bedtools
+samtoolsPath: samtools
 
 inputDir: ./inFolder
 outputDir: ./outputFolder
