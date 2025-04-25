@@ -33,8 +33,9 @@ Julia:
  - QuickArgParse https://github.com/brmcdonald/QuickArgParse  
 
 3rd party tools:  
-Bedtools, to calculate bin read depths  
+Bedtools and Samtools, to calculate bin read depths  
 https://bedtools.readthedocs.io/en/latest/index.html  
+https://www.htslib.org/  
 
 HMMcopy_utils, to calculate gc content for processing reference genomes  
 https://github.com/shahcompbio/hmmcopy_utils  
