@@ -398,8 +398,8 @@ outputParametersToFile(hmmResults.cor, file = outFile)
 
  
 ### SAVE R IMAGE ###
-##save.image(outImage)
-#save(tumour_copy, results, loglik, file=paste0(outDir,"/",id,".RData"))
+#save.image(outImage)
+save(tumour_copy, results, loglik, file=paste0(outDir,"/RData/",id,".RData"))
 
 ## plot solutions for all samples
 plotSolutions(hmmResults.cor, tumour_copy, chrs, outDir, numSamples=numSamples,

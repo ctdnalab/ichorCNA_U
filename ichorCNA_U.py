@@ -39,16 +39,18 @@ def multithread(cmds,func,numCores):
 	p.join()
 	return
 
-def launchJobs(inFolder):
+def launchJobs(inFolder,skipfiles=[]):
 	files = os.listdir(inFolder)
+	files = [x for x in files if x not in skipfiles]
 	for f in files:
 		time.sleep(0.25)
 		os.system('sbatch {0}/{1}'.format(inFolder,f))
 	return
 
-def run_jobs(inFolder,jobName="none",slurm=True,username="none"):
+def run_jobs(inFolder,jobName="none",slurm=True,username="none",skipfiles=[]):
 	if slurm == False:
 		cmds = os.listdir(inFolder)
+		cmds = [x for x in cmds if x not in skipfiles]
 		scriptPathCmds = ['{0}/{1}'.format(inFolder,x) for x in cmds]
 		if sData.cores > 1:
 			multithread(scriptPathCmds,runScript,sData.cores)
@@ -56,7 +58,7 @@ def run_jobs(inFolder,jobName="none",slurm=True,username="none"):
 			for c in scriptPathCmds:
 				os.system('bash {0}'.format(c))
 	else:
-		launchJobs(inFolder)
+		launchJobs(inFolder,skipfiles=skipfiles)
 		while areJobsRunning(jobName,username):
 			time.sleep(60)
 	return
@@ -101,6 +103,10 @@ class inData(object):
 
 		self.scriptHome = scriptHome
 		self.outFolder = yam['outputDir']
+		if "overwrite" in yam:
+			self.overwrite = yam['overwrite']
+		else:
+			self.overwrite = True
 		self.rscriptPath = yam['RscriptPath']
 		self.bedtoolsPath = yam['bedtoolsPath']
 		self.samtoolsPath = yam['samtoolsPath']
@@ -175,7 +181,7 @@ def write_beddepth(sData):
 	--bedtoolspath {sData.bedtoolsPath} \\
 	--samtoolspath {sData.samtoolsPath} \\\n\n"""
 
-		out = open("{0}/jobScripts/binDepth/{1}.depth.bed.slurm".format(sData.outFolder,s),"w")
+		out = open("{0}/jobScripts/binDepth/{1}.binDepth.slurm".format(sData.outFolder,s),"w")
 
 		out.write("""#!/bin/bash
 #
@@ -194,7 +200,6 @@ def write_beddepth(sData):
 
 
 def write_ichorCNA(sData):
-	scriptPaths = []
 	if sData.normal == "":
 		if sData.binSize == 1000:
 			normalPanel = '{0}/inst/extdata/HD_ULP_PoN_1Mb_median_normAutosome_mapScoreFiltered_median.rds'.format(sData.ichorCNAPath)
@@ -223,14 +228,7 @@ def write_ichorCNA(sData):
 
 		allChrSet = "\\\"" + '\\\",\\\"'.join(allChr) + "\\\""
 
-		args = [s,sData.outFolder,sData.binSize,allChrSet,max(sData.chrs),
-						sData.txnE,sData.txnStrength,','.join(sData.normalStart),','.join(sData.ploidy),
-						sData.maxCN,sData.estimateNormal,sData.estimatePloidy,sData.estimateClonality,
-						','.join(sData.scStates),sData.includeHOMD,sData.ichorCNAPath,sData.scriptHome,
-						normalPanel,gcWig,mapWig,sData.maxSubCNA,sData.maxSub,blacklist,sData.rscriptPath]
-
-		scriptPaths.append("{0}/jobScripts/ichorCNA/{1}.slurm".format(sData.outFolder,s))
-		out = open("{0}/jobScripts/ichorCNA/{1}.slurm".format(sData.outFolder,s),"w")
+		out = open("{0}/jobScripts/ichorCNA/{1}.ichorCNA.slurm".format(sData.outFolder,s),"w")
 		ploidyRange = ','.join(sData.ploidy)
 		normalRange = ','.join(sData.normalStart)
 		scStateRange = ','.join(sData.scStates)
@@ -364,6 +362,7 @@ os.system('mkdir -p {0}/wigFiles'.format(sData.outFolder))
 os.system('mkdir -p {0}/stats'.format(sData.outFolder))
 os.system('mkdir -p {0}/temp'.format(sData.outFolder))
 os.system('mkdir -p {0}/ichorOut'.format(sData.outFolder))
+os.system('mkdir -p {0}/ichorOut/RData'.format(sData.outFolder))
 os.system('mkdir -p {0}/jobScripts'.format(sData.outFolder))
 os.system('mkdir -p {0}/jobScripts/ichorCNA'.format(sData.outFolder))
 os.system('mkdir -p {0}/jobScripts/binDepth'.format(sData.outFolder))
@@ -377,21 +376,32 @@ write_ichorCNA(sData)
 
 if sData.runDepthCalc == True:
 	print("Running bin depth counters...")
+	skipFinished = []
+	for s in sData.samples:
+		if os.path.isfile(f"{sData.outFolder}/wigFiles/{s}.wig") and sData.overwrite == False:
+			skipFinished.append(f"{s}.binDepth.slurm")
 	if sData.queue.upper() == "LOCAL":
-		run_jobs("{0}/jobScripts/binDepth".format(sData.outFolder),slurm=False)
+		run_jobs("{0}/jobScripts/binDepth".format(sData.outFolder),slurm=False,skipfiles=skipFinished)
 	elif sData.queue != False:
 		run_jobs("{0}/jobScripts/binDepth".format(sData.outFolder),
-			jobName="bedDepth",username=sData.username)
+			jobName="bedDepth",username=sData.username,skipfiles=skipFinished)
+
 	if sData.gcWig == "" and sData.ichorCNAPath != "None":
 		os.system("grep -rl 'chrom=chr' {0}/wigFiles | xargs sed -i 's/chrom=chr/chrom=/g'".format(sData.outFolder))
 	os.system("rm {0}/*.ichorCNAtempFixedBins.bed".format(sData.outFolder))
 
 if sData.runIchor == True:
 	print("Running ichorCNA...")
+	skipFinished = []
+	for s in sData.samples:
+		if os.path.isfile(f"{sData.outFolder}/ichorOut/{s}.cna.seg") and sData.overwrite == False:
+			skipFinished.append(f"{s}.ichorCNA.slurm")
 	if sData.queue.upper() == "LOCAL":
-		run_jobs("{0}/jobScripts/ichorCNA".format(sData.outFolder),slurm=False)
+		run_jobs("{0}/jobScripts/ichorCNA".format(sData.outFolder),slurm=False,skipfiles=skipFinished)
 	else:
 		run_jobs("{0}/jobScripts/ichorCNA".format(sData.outFolder),
-			jobName="ichorCNA",username=sData.username)
+			jobName="ichorCNA",username=sData.username,skipfiles=skipFinished)
+
+
 if sData.runStats == True:
 	read_outputs(sData)

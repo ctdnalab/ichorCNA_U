@@ -15,6 +15,7 @@ samtoolsPath: samtools
 
 inputDir: ./inFolder
 outputDir: ./outputFolder
+overwrite: false
 
 #Info for job managment. 
 slurmQueue: LOCAL #If not using slurm, set slurmQueue to LOCAL.
