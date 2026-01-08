@@ -9,8 +9,8 @@ calcStats: false
 
 ichorCNAPath: default #src_ichorCNA/ path, defaults to the dir containing ichorCNA_U.py
 RscriptPath: Rscript
-juliaPath: julia
-bedtoolsPath: bedtools
+pythonPath: python3
+tabixPath: tabix
 samtoolsPath: samtools
 
 inputDir: ./inFolder

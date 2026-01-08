@@ -108,10 +108,10 @@ class inData(object):
 		else:
 			self.overwrite = True
 		self.rscriptPath = yam['RscriptPath']
-		self.bedtoolsPath = yam['bedtoolsPath']
+		self.tabixPath = yam['tabixPath']
 		self.samtoolsPath = yam['samtoolsPath']
-		self.juliaPath = yam["juliaPath"]
-		self.bedDepthPath = '{0}/src/getBedDepth.jl'.format(scriptHome)
+		self.pythonPath = yam["pythonPath"]
+		self.readDepthPath = '{0}/src/getDepthWig.py'.format(scriptHome)
 		if yam['ichorCNAPath'] == "default":
 			self.ichorCNAPath = '{0}/src_ichorCNA/'.format(scriptHome)
 		else:
@@ -165,21 +165,20 @@ class Result(object):
 		self.scCNA = 0.0
 		return
 
-def write_beddepth(sData):
+def write_readdepth(sData):
 	chroms = [str(x) for x in sData.chrs]
 	for s in sData.samples:
 		inFile = sData.samples[s]
 		mem = 20000
 		goodChroms = ','.join(chroms)
-		hcCmd = f"""{sData.juliaPath} {sData.bedDepthPath} \\
+		hcCmd = f"""{sData.pythonPath} {sData.readDepthPath} \\
 	{inFile} \\
-	{sData.binSize} \\
 	{sData.chromSizeFile} \\
 	{sData.refGenome} \\
 	{sData.outFolder}/wigFiles/{s}.wig \\
-	--chroms {goodChroms} \\
-	--bedtoolspath {sData.bedtoolsPath} \\
-	--samtoolspath {sData.samtoolsPath} \\\n\n"""
+	{sData.binSize} \\
+	{sData.tabixPath} \\
+	{sData.samtoolsPath} \\\n\n"""
 
 		out = open("{0}/jobScripts/binDepth/{1}.binDepth.slurm".format(sData.outFolder,s),"w")
 
@@ -190,8 +189,8 @@ def write_beddepth(sData):
 #SBATCH -n 1		# number of cores
 #SBATCH --mem {3}		# memory (in mb)
 #SBATCH -t 0-05:00		# time (D-HH:MM)
-#SBATCH -o {1}/logs/bedDepth_{0}.log
-#SBATCH --job-name=bedDepth_{0}
+#SBATCH -o {1}/logs/binDepth_{0}.log
+#SBATCH --job-name=binDepth_{0}
 #SBATCH --chdir={1}\n\n""".format(s,sData.outFolder,sData.queue,mem))
 
 		out.write(hcCmd)
@@ -371,7 +370,7 @@ os.system('cp {0} {1}/'.format(yamlInput,sData.outFolder))
 
 print("\n")
 
-write_beddepth(sData)
+write_readdepth(sData)
 write_ichorCNA(sData)
 
 if sData.runDepthCalc == True:
@@ -384,7 +383,7 @@ if sData.runDepthCalc == True:
 		run_jobs("{0}/jobScripts/binDepth".format(sData.outFolder),slurm=False,skipfiles=skipFinished)
 	elif sData.queue != False:
 		run_jobs("{0}/jobScripts/binDepth".format(sData.outFolder),
-			jobName="bedDepth",username=sData.username,skipfiles=skipFinished)
+			jobName="binDepth",username=sData.username,skipfiles=skipFinished)
 
 	if sData.gcWig == "" and sData.ichorCNAPath != "None":
 		os.system("grep -rl 'chrom=chr' {0}/wigFiles | xargs sed -i 's/chrom=chr/chrom=/g'".format(sData.outFolder))
