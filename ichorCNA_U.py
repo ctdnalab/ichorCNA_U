@@ -178,7 +178,8 @@ def write_readdepth(sData):
 	{sData.outFolder}/wigFiles/{s}.wig \\
 	{sData.binSize} \\
 	{sData.tabixPath} \\
-	{sData.samtoolsPath} \\\n\n"""
+	{sData.samtoolsPath} \\
+	\"{goodChroms}\" \\\n\n"""
 
 		out = open("{0}/jobScripts/binDepth/{1}.binDepth.slurm".format(sData.outFolder,s),"w")
 

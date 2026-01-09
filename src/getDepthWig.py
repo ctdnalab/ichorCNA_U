@@ -11,6 +11,7 @@ def main():
 	<Bin size (in kb)>
 	<Tabix path>
 	<Samtools path>
+	<Chroms to analyze (comma separated)>"
 	"""
 	argv = sys.argv[1:]
 	try:
@@ -21,6 +22,7 @@ def main():
 		binSize = int(argv.pop(0))
 		tabixPath = argv.pop(0)
 		samtoolsPath = argv.pop(0)
+		goodChroms = argv.pop(0).split(",")
 	except:
 		sys.exit(usage)
 
@@ -29,6 +31,8 @@ def main():
 	binSize = binSize * 1000
 	binSets = []
 	for r in dfChromSize.itertuples():
+		if r._1 not in goodChroms:
+			continue
 		allBinStart = list(range(1,r._2,binSize))
 		allBinEnd = [x + binSize -1 for x in allBinStart]
 		if allBinEnd[-1] > r._2:
